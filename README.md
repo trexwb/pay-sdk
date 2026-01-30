@@ -1,148 +1,129 @@
-# Pay-SDK
+# Pay-SDK: 微信 & 支付宝集成开发包
 
-一个基于 TypeScript (ESM) 的轻量级支付集成库，统一了 **微信支付 V3** 与 **支付宝 OpenAPI** 的核心调用流程。
-> 还未完成，暂时占个窝，慢慢来写！！！！
+这是一个基于 **TypeScript (ES Module)** 构建的轻量级支付 SDK 封装库。它通过抽象统一的调用逻辑，帮助开发人员快速在 **微信支付 V3** 和 **支付宝 OpenAPI** 之间进行业务切换。
 
-## 🚀 特性
+> 组件还没完成开发，仅仅是先整理了框架结构，占个坑！！后续后续开发中，会添加更多功能。
 
-* **统一化接口**：消除微信与支付宝参数命名的差异感，快速上手。
-* **原生 ESM 支持**：基于 `type: "module"` 开发，完美契合现代 Node.js 生态。
-* **强类型定义**：提供完整的接口参数与返回值的 TS 类型约束。
-* **闭环处理**：涵盖下单、异步通知验签、主动查询及关闭订单。
+## 🚀 核心组件
+
+本 SDK 基于以下官方/主流社区维护的底层库构建：
+
+* **支付宝**: [`alipay-sdk`](https://www.google.com/search?q=%5Bhttps://www.npmjs.com/package/alipay-sdk%5D(https://www.npmjs.com/package/alipay-sdk)) - 官方 Node.js SDK。
+* **微信支付**: [`wechatpay-node-v3`](https://www.google.com/search?q=%5Bhttps://www.npmjs.com/package/wechatpay-node-v3%5D(https://www.npmjs.com/package/wechatpay-node-v3)) - 深度支持 V3 接口与证书自动管理的成熟库。
 
 ---
 
-## 📦 安装
+## 📂 目录结构说明
 
-```bash
-npm install pay-sdk
-# 或者
-yarn add pay-sdk
+```text
+./
+├── src/
+│   ├── shared/      # 通用层：加密算法、基础类型、常量定义
+│   ├── alipay/      # 支付宝模块：涵盖 PC 网站、扫码支付、条码支付
+│   ├── wechat/      # 微信模块：涵盖 Native、H5、JSAPI 支付
+│   └── index.ts     # 统一入口：暴露 PayFactory 工厂类
+├── dist/            # 编译后的 ESM 代码
+└── package.json     # 定义导出入口 (exports)
 
 ```
 
 ---
 
-## 🛠️ 快速开始
+## 🛠️ 核心功能支持矩阵
 
-### 1. 支付宝 (Alipay)
+| 支付场景 | 支付宝方法 (Alipay) | 微信支付方法 (WeChat) |
+| --- | --- | --- |
+| **PC/电脑网站** | `createPageOrder` (FAST_INSTANT_TRADE_PAY) | `createNativeOrder` (Native) |
+| **线下扫码 (用户扫商家)** | `createQrCodeOrder` (PRECREATE) | `createNativeOrder` (Native) |
+| **条码支付 (商家扫用户)** | `payByBarCode` (FACE_TO_FACE) | *(需通过 MicroPay 扩展)* |
+| **手机浏览器 (H5)** | `createPageOrder` (自动识别) | `createH5Order` (MWEB) |
+| **微信内支付 (JSAPI)** | - | `createJSAPIOrder` (二次签名完成) |
+| **通用功能** | `queryOrder` / `checkNotifySign` | `queryOrder` / `verifyAndDecryptNotify` |
 
-支持 **电脑网站支付** 与 **扫码支付 (当面付)**。
+---
+
+## 📦 快速开始
+
+### 1. 初始化工厂
 
 ```typescript
 import { PayFactory } from 'pay-sdk';
 
+// 支付宝配置
 const alipay = PayFactory.createAlipay({
   appId: '2021000...',
   privateKey: '-----BEGIN RSA PRIVATE KEY-----...',
   platformPublicKey: '支付宝公钥...',
 });
 
-// A. 电脑网站支付 (返回 HTML Form)
-const html = await alipay.createPageOrder({
-  outTradeNo: 'ORDER_001',
-  totalAmount: '100.00',
-  subject: '测试商品'
-}, 'https://your-api.com/ali/notify');
-
-// B. 扫码支付 (返回 qr_code)
-const { qr_code } = await alipay.createQrCodeOrder({
-  outTradeNo: 'ORDER_002',
-  totalAmount: '0.01',
-  subject: '线下扫码'
-}, 'https://your-api.com/ali/notify');
-
-```
-
-### 2. 微信支付 (WeChat Pay V3)
-
-支持 **Native 扫码支付** 与 **H5 支付**。
-
-```typescript
-import { PayFactory } from 'pay-sdk';
-
+// 微信配置 (V3)
 const wechat = PayFactory.createWechat({
   appId: 'wx...',
   mchid: '160...',
-  serialNo: '证书序列号...',
+  serialNo: '商户证书序列号',
   privateKey: '-----BEGIN PRIVATE KEY-----...',
-  platformPublicKey: '微信平台公钥...',
-  apiV3Key: '32位密钥...',
+  apiV3Key: '32位密钥',
+  platformPublicKey: '微信平台公钥',
 });
 
-// A. Native 支付 (返回 code_url)
-const { code_url } = await wechat.createNativeOrder({
-  out_trade_no: 'WX_001',
-  description: '测试商品',
-  amount: { total: 100 } // 注意：微信单位为分
-}, 'https://your-api.com/wx/notify');
-
-// B. H5 支付 (返回 h5_url)
-const { h5_url } = await wechat.createH5Order({
-  out_trade_no: 'WX_H5_001',
-  description: '移动端购买',
-  amount: { total: 100 },
-  scene_info: {
-    payer_client_ip: '1.1.1.1',
-    h5_info: { type: 'Wap' }
-  }
-}, 'https://your-api.com/wx/notify');
-
 ```
 
----
+### 2. 发起支付示例 (闭环实现)
 
-## 🔗 核心流程闭环
-
-### 异步通知处理 (Webhook)
-
-当用户支付成功，支付平台会回调你的接口。
-
-| 平台 | 验证方式 | 返回响应 |
-| --- | --- | --- |
-| **支付宝** | `alipay.checkNotifySign(body)` | 字符串 `success` |
-| **微信** | `wechat.verifyAndDecryptNotify(headers, body)` | JSON `{ code: "SUCCESS" }` |
-
-### 主动查询订单
+#### 支付宝：PC 网站支付
 
 ```typescript
-// 支付宝查询
-const aliStatus = await alipay.queryOrder('ORDER_001');
+const formHtml = await alipay.createPageOrder({
+  outTradeNo: 'ORDER_001',
+  totalAmount: '100.00',
+  subject: 'MacBook Pro'
+}, 'https://your-api.com/ali/notify');
 
-// 微信查询
-const wxStatus = await wechat.queryOrder('WX_001');
+// 前端直接渲染 formHtml
+
+```
+
+#### 微信：JSAPI 支付 (自动处理二次签名)
+
+```typescript
+const payParams = await wechat.createJSAPIOrder({
+  out_trade_no: 'ORDER_002',
+  description: '云服务订阅',
+  amount: { total: 990 }, // 9.9元
+  payer: { openid: 'user_openid' },
+  notify_url: 'https://your-api.com/wx/notify'
+});
+
+// 直接将 payParams 返回给前端，用于 WeixinJSBridge 唤起支付
 
 ```
 
 ---
 
-## 📂 目录结构
+## 🛡️ 异步通知处理 (Webhook)
 
-```text
-src/
-├── alipay/     # 支付宝 SDK 封装 (基于 alipay-sdk)
-├── wechat/     # 微信 SDK 封装 (基于 wechatpay-node-v3)
-├── shared/     # 公共加密、工具函数与基础类型
-└── index.ts    # 统一导出入口
+本 SDK 封装了复杂的验签与解密过程：
+
+```typescript
+// 支付宝验签
+const isValid = alipay.checkNotifySign(ctx.request.body);
+
+// 微信 V3 验签与报文解密
+const data = await wechat.verifyAndDecryptNotify(ctx.headers, ctx.request.body);
+console.log('支付成功的订单号:', data.out_trade_no);
 
 ```
 
 ---
 
-## 📝 开发注意事项
+## 📝 注意事项
 
-1. **金额单位**：支付宝输入以“元”为单位（String），微信输入以“分”为单位（Number）。
-2. **密钥格式**：
-* 支付宝私钥通常包含 `-----BEGIN RSA PRIVATE KEY-----`。
-* 微信私钥为 API 证书中的 `apiclient_key.pem` 内容。
-
-
-3. **环境要求**：Node.js >= 18.x (推荐)。
+1. **金额单位**: 支付宝使用“元”(String: `1.00`)，微信支付使用“分”(Number: `100`)。
+2. **证书管理**: 微信 V3 必须提供证书序列号 (`serialNo`)。
+3. **运行环境**: 需 Node.js 18+，项目需设置 `"type": "module"`。
 
 ---
 
-## 🤝 贡献
+## 🤝 Stargazers
 
-欢迎提交 Issue 或 Pull Request 来完善退款、分账等更多功能。
-
-[![Stargazers over time](https://starchart.cc/trexwb/node-laravel.svg?variant=adaptive)](https://starchart.cc/trexwb/node-laravel)
+[![Stargazers over time](https://starchart.cc/trexwb/pay-sdk.svg?variant=adaptive)](https://starchart.cc/trexwb/pay-sdk)

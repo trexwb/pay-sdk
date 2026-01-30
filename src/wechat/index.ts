@@ -1,5 +1,11 @@
 import WechatPay from 'wechatpay-node-v3';
-import { WechatNativeParams, WechatNotifyBody, WechatH5Params } from './types.js';
+import {
+  WechatNativeParams,
+  WechatNotifyBody,
+  WechatH5Params,
+  WechatJSAPIParams,
+  WechatJSAPISignRes
+} from './types.js';
 
 export interface WechatConfig {
   appId: string;
@@ -45,6 +51,34 @@ export class WechatPaySDK {
       ...params,
       notify_url: notifyUrl,
     });
+  }
+
+  /**
+   * JSAPI 支付：下单并自动完成二次签名
+   */
+  async createJSAPIOrder(params: WechatJSAPIParams): Promise<WechatJSAPISignRes> {
+    // 1. 调用下单接口获取 prepay_id
+    const { prepay_id } = await this.pay.transactions_jsapi(params);
+
+    // 2. 构造二次签名参数
+    const timeStamp = Math.floor(Date.now() / 1000).toString();
+    const nonceStr = Math.random().toString(36).substring(2, 17);
+    const packageStr = `prepay_id=${prepay_id}`;
+
+    // 3. 使用 SDK 的内置方法进行签名 (V3 标准)
+    // 注意：wechatpay-node-v3 通常提供此辅助方法
+    const paySign = this.pay.getSignature(
+      `${this.pay.appid}\n${timeStamp}\n${nonceStr}\n${packageStr}\n`
+    );
+
+    return {
+      appId: this.pay.appid,
+      timeStamp,
+      nonceStr,
+      package: packageStr,
+      signType: 'RSA',
+      paySign,
+    };
   }
 
   /**
