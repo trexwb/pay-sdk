@@ -1,21 +1,47 @@
-/**
- * 统一支付 SDK 导出入口
- */
+// src/index.ts
 
-// 1. 导出工具类（如加密、HTTP 封装），方便开发者自行扩展
-export * from './shared/index.js';
+export * from './alipay/index.js';
+export * from './alipay/types.js';
+export * from './wechat/index.js';
+export * from './wechat/types.js';
 
-// 2. 导出支付宝模块
-export * as Alipay from './alipay/index.js';
+import { AlipaySDK } from './alipay/index.js';
+import { WechatPaySDK, WechatConfig } from './wechat/index.js';
+import { BaseConfig } from './shared/types.js';
 
-// 3. 导出微信支付模块
-export * as Wechat from './wechat/index.js';
+export class PayFactory {
+  /**
+   * 快速创建支付宝实例
+   */
+  static createAlipay(config: BaseConfig): AlipaySDK {
+    return new AlipaySDK(config);
+  }
 
-// 4. 版本信息
-export const SDK_VERSION = '1.0.0';
+  /**
+   * 快速创建微信实例
+   */
+  static createWechat(config: WechatConfig): WechatPaySDK {
+    return new WechatPaySDK(config);
+  }
+}
 
-/**
- * 使用示例:
- * import { Alipay, Wechat, CryptoUtils } from 'pay-sdk';
- * const alipayClient = new Alipay.AlipayClient(...);
- */
+
+// --- 示例：支付宝扫码支付 ---
+// const alipay = PayFactory.createAlipay(aliConfig);
+// const { qr_code } = await alipay.createQrCodeOrder({
+//   outTradeNo: 'ALI_SCAN_001',
+//   totalAmount: '0.01',
+//   subject: '门店收银'
+// }, 'https://example.com/notify');
+
+// // --- 示例：微信 H5 支付 ---
+// const wechat = PayFactory.createWechat(wxConfig);
+// const { h5_url } = await wechat.createH5Order({
+//   out_trade_no: 'WX_H5_001',
+//   description: '移动端购买',
+//   amount: { total: 1 }, // 1分钱
+//   scene_info: {
+//     payer_client_ip: '1.1.1.1',
+//     h5_info: { type: 'Wap' }
+//   }
+// }, 'https://example.com/notify');

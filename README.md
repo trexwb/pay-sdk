@@ -1,19 +1,14 @@
-这份 `README.md` 旨在为开发者提供清晰的接入指南，涵盖了安装、初始化以及微信/支付宝双平台的调用示例。
-
----
-
 # Pay-SDK
 
-一个基于 **TypeScript** 和 **ESM** 模式构建的轻量级支付集成库。本项目严格遵循微信支付 V3 和支付宝 OpenAPI 的签名逻辑，提供统一且强类型的开发体验。
-
-还未完成，暂时占个窝，慢慢来写！！！！
+一个基于 TypeScript (ESM) 的轻量级支付集成库，统一了 **微信支付 V3** 与 **支付宝 OpenAPI** 的核心调用流程。
+> 还未完成，暂时占个窝，慢慢来写！！！！
 
 ## 🚀 特性
 
-* **原生 ESM 支持**：基于 `"type": "module"` 编写，完美契合现代 Node.js 生态。
-* **自动化签名**：内置拦截器，自动处理微信 V3 的 `Authorization` 头和支付宝的 `RSA2` 签名。
-* **强类型定义**：完整的 Request/Response 接口定义，提供极致的 IDE 补全体验。
-* **单包多导出**：支持按需引入模块，减少代码冗余。
+* **统一化接口**：消除微信与支付宝参数命名的差异感，快速上手。
+* **原生 ESM 支持**：基于 `type: "module"` 开发，完美契合现代 Node.js 生态。
+* **强类型定义**：提供完整的接口参数与返回值的 TS 类型约束。
+* **闭环处理**：涵盖下单、异步通知验签、主动查询及关闭订单。
 
 ---
 
@@ -21,8 +16,8 @@
 
 ```bash
 npm install pay-sdk
-# 或者使用 pnpm
-pnpm add pay-sdk
+# 或者
+yarn add pay-sdk
 
 ```
 
@@ -30,83 +25,124 @@ pnpm add pay-sdk
 
 ## 🛠️ 快速开始
 
-### 1. 微信支付 (WeChat Pay V3)
+### 1. 支付宝 (Alipay)
+
+支持 **电脑网站支付** 与 **扫码支付 (当面付)**。
 
 ```typescript
-import { Wechat } from 'pay-sdk';
+import { PayFactory } from 'pay-sdk';
 
-const client = new Wechat.WechatPayClient({
-  mchid: '190000****',
-  serialNo: '582262770A000***********',
-  privateKey: '-----BEGIN PRIVATE KEY-----\n...', // 证书私钥
-  apiV3Key: 'your_api_v3_key_32_chars',
+const alipay = PayFactory.createAlipay({
+  appId: '2021000...',
+  privateKey: '-----BEGIN RSA PRIVATE KEY-----...',
+  platformPublicKey: '支付宝公钥...',
 });
 
-// JSAPI 下单
-const res = await client.transactionsJsapi({
-  appid: 'wxd678efh567xy123',
-  mchid: '1230000109',
-  description: '测试商品',
-  out_trade_no: 'sdk_order_001',
-  notify_url: 'https://example.com/notify',
-  amount: { total: 1 }, // 1分钱
-  payer: { openid: 'oUpv75k9c_T9xxxx' }
-});
+// A. 电脑网站支付 (返回 HTML Form)
+const html = await alipay.createPageOrder({
+  outTradeNo: 'ORDER_001',
+  totalAmount: '100.00',
+  subject: '测试商品'
+}, 'https://your-api.com/ali/notify');
 
-console.log(res.prepay_id);
+// B. 扫码支付 (返回 qr_code)
+const { qr_code } = await alipay.createQrCodeOrder({
+  outTradeNo: 'ORDER_002',
+  totalAmount: '0.01',
+  subject: '线下扫码'
+}, 'https://your-api.com/ali/notify');
 
 ```
 
-### 2. 支付宝 (Alipay OpenAPI)
+### 2. 微信支付 (WeChat Pay V3)
+
+支持 **Native 扫码支付** 与 **H5 支付**。
 
 ```typescript
-import { Alipay } from 'pay-sdk';
+import { PayFactory } from 'pay-sdk';
 
-const client = new Alipay.AlipayClient({
-  appId: '202100*******',
-  privateKey: '-----BEGIN RSA PRIVATE KEY-----\n...', // 应用私钥
-  gateway: Alipay.ALIPAY_GATEWAY // 可选，默认为正式环境
+const wechat = PayFactory.createWechat({
+  appId: 'wx...',
+  mchid: '160...',
+  serialNo: '证书序列号...',
+  privateKey: '-----BEGIN PRIVATE KEY-----...',
+  platformPublicKey: '微信平台公钥...',
+  apiV3Key: '32位密钥...',
 });
 
-// 发起 App 支付查询
-const result = await client.execute('alipay.trade.query', {
-  out_trade_no: 'sdk_order_001'
-});
+// A. Native 支付 (返回 code_url)
+const { code_url } = await wechat.createNativeOrder({
+  out_trade_no: 'WX_001',
+  description: '测试商品',
+  amount: { total: 100 } // 注意：微信单位为分
+}, 'https://your-api.com/wx/notify');
 
-console.log(result.alipay_trade_query_response.trade_status);
+// B. H5 支付 (返回 h5_url)
+const { h5_url } = await wechat.createH5Order({
+  out_trade_no: 'WX_H5_001',
+  description: '移动端购买',
+  amount: { total: 100 },
+  scene_info: {
+    payer_client_ip: '1.1.1.1',
+    h5_info: { type: 'Wap' }
+  }
+}, 'https://your-api.com/wx/notify');
 
 ```
 
 ---
 
-## 📂 项目结构
+## 🔗 核心流程闭环
+
+### 异步通知处理 (Webhook)
+
+当用户支付成功，支付平台会回调你的接口。
+
+| 平台 | 验证方式 | 返回响应 |
+| --- | --- | --- |
+| **支付宝** | `alipay.checkNotifySign(body)` | 字符串 `success` |
+| **微信** | `wechat.verifyAndDecryptNotify(headers, body)` | JSON `{ code: "SUCCESS" }` |
+
+### 主动查询订单
+
+```typescript
+// 支付宝查询
+const aliStatus = await alipay.queryOrder('ORDER_001');
+
+// 微信查询
+const wxStatus = await wechat.queryOrder('WX_001');
+
+```
+
+---
+
+## 📂 目录结构
 
 ```text
 src/
-├── shared/     # 核心工具（RSA签名、HTTP封装）
-├── wechat/     # 微信支付模块（自动注入V3签名头）
-├── alipay/     # 支付宝模块（自动处理参数排序与签名）
+├── alipay/     # 支付宝 SDK 封装 (基于 alipay-sdk)
+├── wechat/     # 微信 SDK 封装 (基于 wechatpay-node-v3)
+├── shared/     # 公共加密、工具函数与基础类型
 └── index.ts    # 统一导出入口
 
 ```
 
 ---
 
-## 🔐 安全建议
+## 📝 开发注意事项
 
-1. **私钥保护**：切勿将 `.pem` 私钥文件提交至 Git 仓库。建议使用环境变量或加密的配置中心加载。
-2. **验签**：在处理支付回调（Notification）时，务必调用 SDK 提供的验签逻辑，防止伪造通知。
+1. **金额单位**：支付宝输入以“元”为单位（String），微信输入以“分”为单位（Number）。
+2. **密钥格式**：
+* 支付宝私钥通常包含 `-----BEGIN RSA PRIVATE KEY-----`。
+* 微信私钥为 API 证书中的 `apiclient_key.pem` 内容。
 
----
 
-## 📄 开源协议
-
-[MIT](https://www.google.com/search?q=LICENSE)
-
----
+3. **环境要求**：Node.js >= 18.x (推荐)。
 
 ---
 
-## Stargazers over time
+## 🤝 贡献
+
+欢迎提交 Issue 或 Pull Request 来完善退款、分账等更多功能。
 
 [![Stargazers over time](https://starchart.cc/trexwb/node-laravel.svg?variant=adaptive)](https://starchart.cc/trexwb/node-laravel)
