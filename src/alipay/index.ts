@@ -1,6 +1,11 @@
 import { AlipaySdk } from 'alipay-sdk';
 import { BaseConfig } from '../shared/types.js';
-import { AlipayTradePagePayParams, AlipayNotifyData, AlipayTradePrecreateParams } from './types.js';
+import {
+  AlipayTradePagePayParams,
+  AlipayNotifyData,
+  AlipayTradePrecreateParams,
+  AlipayTradePayParams
+} from './types.js';
 
 export class AlipaySDK {
   private sdk: any;
@@ -37,6 +42,23 @@ export class AlipaySDK {
     return this.sdk.exec('alipay.trade.precreate', {
       notify_url: notifyUrl,
       bizContent: params,
+    });
+  }
+
+  /**
+   * 当面付：条码支付 (商家扫用户付款码)
+   * 该接口通常直接返回支付结果，无需等待异步通知
+   */
+  async payByBarCode(params: AlipayTradePayParams) {
+    return this.sdk.exec('alipay.trade.pay', {
+      bizContent: {
+        out_trade_no: params.outTradeNo,
+        scene: params.scene,
+        auth_code: params.authCode,
+        subject: params.subject,
+        total_amount: params.totalAmount,
+        body: params.body,
+      },
     });
   }
 

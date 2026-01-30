@@ -38,3 +38,25 @@ export interface WechatH5Params {
     };
   };
 }
+
+export interface WechatJSAPIParams {
+  description: string;
+  out_trade_no: string;
+  notify_url: string;
+  amount: {
+    total: number;
+  };
+  payer: {
+    openid: string; // 必填：用户的 OpenID
+  };
+}
+
+// 返回给前端调起支付的参数
+export interface WechatJSAPISignRes {
+  appId: string;
+  timeStamp: string;
+  nonceStr: string;
+  package: string;
+  signType: 'RSA';
+  paySign: string;
+}

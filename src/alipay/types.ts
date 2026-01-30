@@ -22,3 +22,12 @@ export interface AlipayTradePrecreateParams {
   body?: string;
   storeId?: string; // 选填：商户门店编号
 }
+
+export interface AlipayTradePayParams {
+  outTradeNo: string;
+  scene: 'bar_code' | 'wave_code'; // 条码支付固定为 bar_code
+  authCode: string;               // 用户付款码串
+  subject: string;
+  totalAmount: string;
+  body?: string;
+}
