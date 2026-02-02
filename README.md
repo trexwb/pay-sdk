@@ -8,8 +8,8 @@
 
 本 SDK 基于以下官方/主流社区维护的底层库构建：
 
-* **支付宝**: [`alipay-sdk`](https://www.google.com/search?q=%5Bhttps://www.npmjs.com/package/alipay-sdk%5D(https://www.npmjs.com/package/alipay-sdk)) - 官方 Node.js SDK。
-* **微信支付**: [`wechatpay-node-v3`](https://www.google.com/search?q=%5Bhttps://www.npmjs.com/package/wechatpay-node-v3%5D(https://www.npmjs.com/package/wechatpay-node-v3)) - 深度支持 V3 接口与证书自动管理的成熟库。
+* **支付宝**: [`alipay-sdk`](https://github.com/alipay/alipay-sdk-nodejs-all) - 官方 Node.js SDK。
+* **微信支付**: [`wechatpay-node-v3`](https://github.com/klover2/wechatpay-node-v3-ts) - 深度支持 V3 接口与证书自动管理的成熟库。
 
 ---
 
